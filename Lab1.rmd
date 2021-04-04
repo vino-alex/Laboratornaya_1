@@ -1,0 +1,68 @@
+---
+title: "Лабораторная 1"
+author: "Виноградов Александр"
+date: "03 04 2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Вариант 3
+Задача:
+Кинопоиск, топ-100 за 2017 год (https://www.kinopoisk.ru/top/y/2017/). Ссылка указанная в варианте не работает, воспользовался: https://www.kinopoisk.ru/lists/navigator/2017/?quick_filters=films&limit=20&tab=best
+
+```{r}
+library('XML')                 # разбор XML-файлов
+library('RCurl')               # работа с HTML-страницами
+library('rjson')               # чтение формата JSON
+library('rvest')               # работа с DOM сайта
+library('dplyr')               # инструменты трансформирования данных
+library('httr')
+library('stringr')
+
+# ссылка на сайт кинопоиска, с топ 20 фильмами 2017 года
+url <- 'https://www.kinopoisk.ru/lists/navigator/2017/?quick_filters=films&limit=20&tab=best'
+
+html <- GET(url)
+html <- content(html, 'text')
+
+parsed_html <- htmlParse(html, useInternalNodes = T, encoding = "UTF-8")
+name.film <- xpathSApply(parsed_html, '//p[@class="selection-film-item-meta__name"]', xmlValue)
+name.film
+
+original.name.film <- xpathSApply(parsed_html, '//p[@class="selection-film-item-meta__original-name"]', xmlValue)
+original.name.film
+
+genre.film <- xpathSApply(parsed_html, '//span[@class="selection-film-item-meta__meta-additional-item"]', xmlValue)
+genre.film
+
+rating.film <- xpathSApply(parsed_html, '//span[@data-tid="59e7b831"]', xmlValue)
+rating.film <- as.numeric(rating.film)
+rating.film
+
+vote.film <- xpathSApply(parsed_html, '//span[@class="rating__count"]', xmlValue)
+# Избавляемся от пробелов
+vote.film <- gsub(pattern = '\\s', replacement = "", x = vote.film)
+vote.film <- as.numeric(vote.film)
+vote.film
+
+df <- data.frame(name = name.film, original_name = original.name.film,
+                 genre = genre.film[c(F, T)], rating = rating.film[c(T, F)], vote = vote.film)
+
+data.dir <- './data'
+
+# Создаем директорию для данных
+if (!file.exists(data.dir)) {
+  dir.create(data.dir)
+}
+
+# Создаём файл с логом загрузок
+log.filename <- './data/download.log'
+if (!file.exists(log.filename)) file.create(log.filename)
+
+# Загружаем данные в .csv файл
+write.csv(df, file = './data/kinopoisk.csv', row.names = FALSE)
+write(paste('Файл "kinopoisk.csv" записан!', Sys.time()), file = log.filename, append = TRUE)
+```
